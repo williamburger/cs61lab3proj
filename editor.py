@@ -108,6 +108,7 @@ def typeset(manNum,pp,edid,con):
         con.commit()
         print('%s',time.strftime("%x"))
         print('Rejected ManuscriptNum ' + manNum)
+        cursor.close()
         statusCommand(edid,con)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
@@ -115,15 +116,52 @@ def typeset(manNum,pp,edid,con):
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
 def schedule(manNum,issueID,edid,con):
-    #Check if the num pages of this man plus already in issue ID is too large (greater than 100)
-    #Check that it has a status of accepted already
-    #Change status to scheduled
-    statusCommand(edid,con)
+    try:
+        cursor = con.cursor()
+        cursor.execute("SELECT Status,NumPages FROM Manuscript WHERE ManuscriptNum=%s",(manNum,))
+        row = cursor.fetchone()
+        cursor.close()
+        if(row[0] == 'accepted'):
+            numPage = row[1]
+            cursor = con.cursor()
+            cursor.execute("SELECT NumPages FROM Issue WHERE idIssue=%s",(issueID,))
+            row = cursor.fetchone()
+            if(row!=None):
+                if( (row[0]+numPage)<100):
+                    cursor.execute("UPDATE Manuscript SET `Status`='scheduled',idIssue=%s,BeginningPageNum=%s WHERE ManuscriptNum=%s",(issueID,row[0],manNum,))
+                    cursor.execute("UPDATE Issue SET NumPages = %s WHERE idIssue=%s",(row[0]+numPage,issueID,))
+                    con.commit()
+                else:
+                    print('Manuscript has too many pages')
+            else:
+                print('could not find issue in system')
+            cursor.close()
+        else:
+            print('status of manuscript is not accepted, cannot schedule at this time')
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
 def publish(issueID,edid,con):
-    # Publish issueID
-    # change all manuscript statuses to Published
-    statusCommand(edid,con)
+    try:
+        cursor = con.cursor()
+        cursor.execute("SELECT * FROM Manuscript WHERE idIssue=%s AND `Status`='scheduled' LIMIT 1",(issueID,))
+        row = cursor.fetchone()
+        print('here')
+        if(row!=None):
+            cursor.execute("UPDATE Manuscript SET `Status`='published' WHERE idIssue=%s",(issueID,))
+            print('here')
+            cursor.execute("UPDATE Issue SET PrintDate=STR_TO_DATE(%s,'%m/%d/%Y') WHERE idIssue=%s",(time.strftime("%x"),issueID,))
+            con.commit()
+        else:
+            print('No Manuscripts for this issue that are scheduled to be published!')
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
 def optionsEditor(edid,con):
     print("Enter 'STATUS' to view all manuscripts in the system")
@@ -148,7 +186,9 @@ def optionsEditor(edid,con):
     elif(user_input_words[0] == 'SCHEDULE'):
         schedule(user_input_words[1],user_input_words[2],edid,con)
     elif(user_input_words[0] == 'PUBLISH'):
-        publish(user_input_words[1],user_input_words[2],edid,con)
+        publish(user_input_words[1],edid,con)
+    else:
+        print('EXITING PROGRAM')
 
 
 def statusCommand(edid,con):
