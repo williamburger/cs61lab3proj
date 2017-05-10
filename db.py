@@ -1,6 +1,7 @@
 from __future__ import print_function        # make print a function
 import mysql.connector                       # mysql functionality
 import sys                                   # for misc errors
+import time
 
 SERVER   = "sunapee.cs.dartmouth.edu"        # db server to connect to
 USERNAME = "aogren"                            # user to connect as
@@ -12,11 +13,122 @@ def checkLength(strang, length):
         print("Error: Cannot exceed %d characters. Please try again." % (length))
         return True
 
-def loginAuthor(authorId):
-    print(type(authorId))
+def AuthorStatus(authorId):
     try:
         cursor = con.cursor()
-        print('about to query')
+        cursor.execute("SELECT ManuscriptNum,Title,status,DateReceived FROM LeadAuthorManuscripts WHERE AuthorID=%s",(authorId,))
+        row = cursor.fetchone()
+        numManuscripts = 0
+        while row is not None:
+            print("""\nManuscript Number: %s\nManuscript Title: %s\nStatus: %s\nDate Received: %s\n""" %
+            (str(row[0]),str(row[1]),str(row[2]),str(row[3])))
+            numManuscripts+=1
+            row = cursor.fetchone()
+        if (numManuscripts == 0):
+            print("You currently have no manuscripts for which you are the lead author.")
+        cursor.close()
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def AuthorSubmit(authorId):
+    print("Enter:\n"
+        "<title>\n"
+        "<Affiliation>\n"
+        "<RICode>\n"
+        "<author2> ... <authorN>\n"
+        "<filename>\n")
+    print("Where <title> is the title of your ManuscriptID\n"
+    "<RICode> is the subject area of the Manuscript. For a list of subject areas, enter 'RICode'\n"
+    "<author2> ... <authorN> are the contributing authors\n"
+    "<filename> is the your uploaded manuscript\n")
+    user_input = raw_input("Enter Title: ")
+    title = user_input
+    user_input = raw_input("Enter Affiliation: ")
+    Affiliation = int(user_input)
+    user_input = raw_input("Enter Number of Contributing Authors: ")
+    numAuthors = int(user_input)
+    i = 0
+    extraAuthors = []
+    while (i<numAuthors):
+        user_input = raw_input("Enter Author %d: " % (i+1))
+        extraAuthors.append(user_input)
+        i=i+1
+    user_input = raw_input("Enter fileName: ")
+    fileName = user_input
+    try:
+        cursor = con.cursor()
+        #####ERROR IN THIS LINe#######
+        cursor.execute("""INSERT INTO Manuscript (Title,DateReceived,Status,DateSent,NumPages,Order,BeginningPageNum,idIssue,RICode,EditorID) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(title,"date","submitted",None,None,None,None,None,Affiliation,2,))
+        cursor.close()
+        #insert into Authored here
+        #insert into blob_table
+        #insert into Review
+
+        cursor.close()
+        print("Your Manuscript was added to our system with the system-wide unique id:%d" % putIDHere)
+        
+    except mysql.connector.Error as e:
+        print("SQL Error: {0}".format(e.msg))
+    except:
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def ManuscriptRetract(authorId,manuscriptNum):
+    manuscriptNum = int(manuscriptNum)
+    print("Are you sure you want to delete manuscript %d?" % manuscriptNum)
+    user_input = raw_input("y/n: " )
+    if (user_input == "y"):
+        try:
+            cursor = con.cursor()
+            cursor.execute("""SELECT * FROM Authored WHERE AuthorID=%s AND ManuscriptNum=%s""",(authorId,manuscriptNum,))
+            result = cursor.fetchone()
+            numResults = 0
+            while result is not None:
+                numResults=numResults+1
+                result=cursor.fetchone()
+            if (numResults > 0):
+                cursor.execute("""DELETE FROM Authored WHERE AuthorID=%s AND ManuscriptNum=%s""",(authorId,manuscriptNum,))
+                con.commit()
+                cursor.execute("""DELETE FROM Review WHERE ManuscriptNum=%s""",(manuscriptNum,))
+                con.commit()
+                cursor.execute("""DELETE FROM blob_table WHERE ManuscriptNum=%s""",(manuscriptNum,))
+                con.commit()
+                cursor.execute("""DELETE FROM Manuscript WHERE ManuscriptNum=%s """,(manuscriptNum,))
+                con.commit()
+            else:
+                print("You are either not the primary author on that manuscript or it does not exist, so you can't delete it.\n")
+            cursor.close()
+        except mysql.connector.Error as e:
+            print("SQL Error: {0}".format(e.msg))
+        except:
+            print("Unexpected error: {0}".format(sys.exc_info()[0]))
+    elif (user_input == "n"):
+        print("Cancelling...\n")
+    else:
+        print("Not Sure what that means. Try again.\n")
+        ManuscriptRetract(authorId,manuscriptNum)
+
+def GiveAuthorOptions(authorId):
+    print("Enter 'STATUS' to review all of your manuscripts in the system for which you are the primary author.")
+    print("Enter 'SUBMIT' to begin the process of submitting a manuscript for review.")
+    print("Enter 'RETRACT ManuscriptID' to remove one of your manuscripts with its given ID.")
+    user_input = raw_input("\nEnter: ")
+    user_input_words = user_input.split(' ')
+    if (user_input == "STATUS"):
+        AuthorStatus(authorId)
+    elif (user_input == "SUBMIT"):
+        AuthorSubmit(authorId)
+    elif (user_input_words[0] == "RETRACT"):
+        ManuscriptRetract(authorId,user_input_words[1])
+    else:
+        print("Uh Oh. That's not a properly formed command. Please Try again.")
+        GiveAuthorOptions(authorId)
+    GiveAuthorOptions(authorId)
+
+def loginAuthor(authorId):
+    try:
+        cursor = con.cursor()
         cursor.execute("""SELECT FirstName, MiddleName, LastName, Address FROM Author WHERE AuthorID=%s""", (authorId,))
         row = cursor.fetchone()
         while row is not None:
@@ -25,6 +137,10 @@ def loginAuthor(authorId):
             print("Address: %s" % (str(row[3])))
             row = cursor.fetchone()
         cursor.close()
+
+        AuthorStatus(authorId)
+        GiveAuthorOptions(authorId)
+
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
