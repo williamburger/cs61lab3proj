@@ -2,16 +2,15 @@ from __future__ import print_function        # make print a function
 import mysql.connector                       # mysql functionality
 import sys                                   # for misc errors
 import time
+import editor
+import utils
 
 SERVER   = "sunapee.cs.dartmouth.edu"        # db server to connect to
 USERNAME = "aogren"                            # user to connect as
 PASSWORD = "Kellyo1995"                            # user's password
 DATABASE = "aogren_db"                              # db to user
 
-def checkLength(strang, length):
-    if (len(strang) > length):
-        print("Error: Cannot exceed %d characters. Please try again." % (length))
-        return True
+
 
 def AuthorStatus(authorId):
     try:
@@ -68,7 +67,7 @@ def AuthorSubmit(authorId):
 
         cursor.close()
         print("Your Manuscript was added to our system with the system-wide unique id:%d" % putIDHere)
-        
+
     except mysql.connector.Error as e:
         print("SQL Error: {0}".format(e.msg))
     except:
@@ -178,7 +177,7 @@ def registerAuthor(n, e, a):
         user_input = raw_input("Please enter your full name.\n")
         name = user_input
         nameArr = name.split(' ')
-        if (checkLength(name, 135)):
+        if (utils.checkLength(name, 135)):
             name = None
             registerAuthor(name, email, address)
         elif (len(nameArr) < 2 or len(nameArr) > 3):
@@ -188,13 +187,13 @@ def registerAuthor(n, e, a):
     if (email is None):
         user_input = raw_input("Please enter your email address.\n")
         email = user_input
-        if checkLength(email, 100):
+        if utils.checkLength(email, 100):
             email = None
             registerAuthor(name, email, address)
     if (address is None):
         user_input = raw_input("Please enter your home address.\n")
         address = user_input
-        if checkLength(address, 100):
+        if utils.checkLength(address, 100):
             address = None
             registerAuthor(name, email, address)
     createAuthor(nameArr, email, address)
@@ -218,7 +217,12 @@ if __name__ == "__main__":
          else:
              loginAuthor(user_input)
       elif (user_input == 'Editor'):
-          print('yahoo')
+          user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
+                 "Otherwise, type 'Register'\n")
+          if (user_input == 'Register'):
+                editor.registerEditor(None,con)
+          else:
+                editor.loginEditor(user_input,con)
       elif (user_input == 'Reviewer'):
           print('wasup')
       else:
