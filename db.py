@@ -4,6 +4,7 @@ import sys                                   # for misc errors
 import time
 import editor
 import utils
+import reviewer
 
 SERVER   = "sunapee.cs.dartmouth.edu"        # db server to connect to
 USERNAME = "aogren"                            # user to connect as
@@ -224,7 +225,16 @@ if __name__ == "__main__":
           else:
                 editor.loginEditor(user_input,con)
       elif (user_input == 'Reviewer'):
-          print('wasup')
+          user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
+                 "If You wish to resign, type 'RESIGN <id>'\n"
+                 "Otherwise, type 'Register'\n")
+          inputArr = user_input.split(' ')
+          if (user_input == 'Register'):
+                reviewer.registerReviewer(None,None,None,con)
+          elif(inputArr[0] =='RESIGN'):
+                reviewer.resign(inputArr[1],con)
+          else:
+                reviewer.loginReviewer(user_input,con)
       else:
           print('Oh no')
 
