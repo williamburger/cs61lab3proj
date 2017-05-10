@@ -62,18 +62,93 @@ def loginEditor(edid,con):
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
+def assign(manNum,revId,edid,con):
+    try:
+        cursor = con.cursor()
+        cursor.execute("INSERT INTO `Review` (`ManuscriptNum`,`ReviewerNum`,`DateReceived`) VALUES(%s,%s,STR_TO_DATE(%s,'%m/%d/%Y'))",(manNum,revId,time.strftime("%x")))
+        con.commit()
+        print('%s',time.strftime("%x"))
+        print('INSERT COMPLETE')
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def reject(manNum,edid,con):
+    try:
+        cursor = con.cursor()
+        cursor.execute("UPDATE `Manuscript` SET `Status` = 'rejected', `DateSent` = STR_TO_DATE(%s,'%m/%d/%Y') WHERE `ManuscriptNum`=%s",(time.strftime("%x"),manNum))
+        con.commit()
+        print('%s',time.strftime("%x"))
+        print('Rejected ManuscriptNum ' + manNum)
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def accept(manNum,edid,con):
+    try:
+        cursor = con.cursor()
+        cursor.execute("UPDATE `Manuscript` SET `Status` = 'accepted', `DateSent` = STR_TO_DATE(%s,'%m/%d/%Y') WHERE `ManuscriptNum`=%s",(time.strftime("%x"),manNum))
+        con.commit()
+        print('%s',time.strftime("%x"))
+        print('Accepted ManuscriptNum ' + manNum)
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def typeset(manNum,pp,edid,con):
+    try:
+        cursor = con.cursor()
+        cursor.execute("UPDATE `Manuscript` SET `Status` = 'typeset', `NumPages` = %s WHERE `ManuscriptNum`=%s",(pp,manNum))
+        con.commit()
+        print('%s',time.strftime("%x"))
+        print('Rejected ManuscriptNum ' + manNum)
+        statusCommand(edid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
+def schedule(manNum,issueID,edid,con):
+    #Check if the num pages of this man plus already in issue ID is too large (greater than 100)
+    #Check that it has a status of accepted already
+    #Change status to scheduled
+    statusCommand(edid,con)
+
+def publish(issueID,edid,con):
+    # Publish issueID
+    # change all manuscript statuses to Published
+    statusCommand(edid,con)
+
 def optionsEditor(edid,con):
     print("Enter 'STATUS' to view all manuscripts in the system")
     print("Enter 'ASSIGN <manu#> <reviewer id>' to assign a manuscript to be reviewed by a reviewer with timestamp")
     print("Enter 'REJECT <manu#>' to set the manuscript to rejected with timestamp")
     print("Enter 'ACCEPT <manu#>' to set the manuscript to accepted with timestamp")
     print("Enter 'TYPESET <manu#> <pp>' to set the manuscript to typeset and enter the page numbers")
-    print("Enter 'SCHEDULE <manu#> <issue>' to schedule an appearance in an issue that has less than 100 pages")
-    print("Enter 'PUBLISH' <issue> and set all manuscripts in the issue to Pulished")
+    print("Enter 'SCHEDULE <manu#> <issueID>' to schedule an appearance in an issue that has less than 100 pages")
+    print("Enter 'PUBLISH' <issueID> and set all manuscripts in the issue to Pulished")
     user_input = raw_input("\nEnter: ")
     user_input_words = user_input.split(' ')
     if(user_input == 'STATUS'):
         statusCommand(edid,con)
+    elif(user_input_words[0] == 'ASSIGN'):
+        assign(user_input_words[1],user_input_words[2],edid,con)
+    elif(user_input_words[0] == 'REJECT'):
+        reject(user_input_words[1],edid,con)
+    elif(user_input_words[0] == 'ACCEPT'):
+        accept(user_input_words[1],edid,con)
+    elif(user_input_words[0] == 'TYPESET'):
+        typeset(user_input_words[1],user_input_words[2],edid,con)
+    elif(user_input_words[0] == 'SCHEDULE'):
+        schedule(user_input_words[1],user_input_words[2],edid,con)
+    elif(user_input_words[0] == 'PUBLISH'):
+        publish(user_input_words[1],user_input_words[2],edid,con)
 
 
 def statusCommand(edid,con):
