@@ -17,22 +17,62 @@ def resign(revid,con):
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
+def optionsReviewer(revid,con):
+    manNum = raw_input('PLEASE ENTER A MANUSCRIPT NUMBER YOU WANT TO REVIEW <ManNum> or EXIT to exit:')
+    if(manNum == 'EXIT'):
+        return
+    Clarity = raw_input('Please enter score from 1-10 for Clarity:')
+    Appropriateness = raw_input('Please enter score from 1-10 for Appropriateness:')
+    Contribution = raw_input('Please enter score from 1-10 for Contribution:')
+    Methodology = raw_input('Please enter score from 1-10 for Methodology:')
+    Recommendation = raw_input('Type ACCEPT to recommend accepting the manuscript, or REJECT if not:')
+    Recommendation = Recommendation.lower()
+    try:
+        cursor=con.cursor()
+        cursor.execute("SELECT * FROM Review WHERE ManuscriptNum=%s AND ReviewerNum=%s",(manNum,revid,))
+        row = cursor.fetchone()
+
+        if(row!=None):
+            cursor.close()
+            cursor = con.cursor()
+            cursor.execute("SELECT * FROM Manuscript WHERE ManuscriptNum=%s AND `Status`='under review'",(manNum,))
+            row = cursor.fetchone()
+            if(row!=None):
+                cursor.close()
+                cursor = con.cursor()
+                cursor.execute("UPDATE Review SET `Clarity`=%s,Appropriateness=%s,Contribution=%s,Methodology=%s,Recommendation=%s WHERE ManuscriptNum=%s AND ReviewerNum=%s",(Clarity,Appropriateness,Contribution,Methodology,Recommendation,manNum,revid))
+                con.commit()
+                print("Manuscript "+manNum+" updated")
+            else:
+                print("Manuscript not under review")
+        else:
+            print('Manuscript did not belong to this reviewer\n')
+        cursor.close()
+        statusCommand(revid,con)
+    except mysql.connector.Error as e:        # catch SQL errors
+        print("SQL Error: {0}".format(e.msg))
+    except:                                   # anything else
+        print("Unexpected error: {0}".format(sys.exc_info()[0]))
+
 ####THIS IS NOT DONE YET, STILL TRYING TO FIGURE IT OUT
-def statusCommand(revid,conn):
+def statusCommand(revid,con):
     try:
         cursor = con.cursor()
-        cursor.execute("SELECT ManuscriptNum,Title,status,DateReceived FROM Manuscript WHERE ReviewerNum=%s ORDER BY status, DateReceived",(revid,))
+        args = (1)
+        cursor.execute("SELECT * FROM ReviewStatusAll WHERE ReviewerNum=%s",(revid,))
+
         row = cursor.fetchone()
+
         numManuscripts = 0
         while row is not None:
-            print("""\nManuscript Number: %s\nManuscript Title: %s\nStatus: %s\nDate Received: %s\n""" %
-            (str(row[0]),str(row[1]),str(row[2]),str(row[3])))
+            print("""ReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
+            (str(row[0]),str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]),str(row[7]),str(row[8])))
             numManuscripts+=1
             row = cursor.fetchone()
         if (numManuscripts == 0):
-            print("You currently have no manuscripts for which you are the editor.")
+            print("You currently have no manuscripts for which you are the reviewer.")
         cursor.close()
-        optionsEditor(edid,con)
+        optionsReviewer(revid,con)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
@@ -41,7 +81,7 @@ def statusCommand(revid,conn):
 def loginReviewer(revid,con):
     try:
         cursor = con.cursor()
-        cursor.execute("SELECT FirstName, MiddleName, LastName FROM Editor WHERE EditorID=%s",(revid,))
+        cursor.execute("SELECT FirstName, MiddleName, LastName FROM Reviewer WHERE ReviewerNum=%s",(revid,))
         row = cursor.fetchone()
         while row is not None:
             print('Welcome Back!\n')
