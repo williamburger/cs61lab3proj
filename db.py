@@ -40,7 +40,7 @@ def AuthorSubmit(authorId):
         "<author2> ... <authorN>\n"
         "<filename>\n")
     print("Where <title> is the title of your ManuscriptID\n"
-    "<RICode> is the subject area of the Manuscript. For a list of subject areas, enter 'RICode'\n"
+    "<RICode> is the subject area of the Manuscript.\n"
     "<author2> ... <authorN> are the contributing authors\n"
     "<filename> is the your uploaded manuscript\n")
     user_input = raw_input("Enter Title: ")
@@ -52,22 +52,45 @@ def AuthorSubmit(authorId):
     i = 0
     extraAuthors = []
     while (i<numAuthors):
-        user_input = raw_input("Enter Author %d: " % (i+1))
+        user_input = raw_input("Enter Author %d's id: " % (i+1))
         extraAuthors.append(user_input)
         i=i+1
+
     user_input = raw_input("Enter fileName: ")
     fileName = user_input
     try:
         cursor = con.cursor()
-        #####ERROR IN THIS LINe#######
-        cursor.execute("""INSERT INTO Manuscript (Title,DateReceived,Status,DateSent,NumPages,Order,BeginningPageNum,idIssue,RICode,EditorID) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(title,"date","submitted",None,None,None,None,None,Affiliation,2,))
-        cursor.close()
-        #insert into Authored here
-        #insert into blob_table
-        #insert into Review
+        i=0
+        alreadyRegistered = True
+        offendingAuthor = None
+        while (i<numAuthors):
+            cursor.execute("""SELECT COUNT(*) FROM Author WHERE AuthorID=%s""",(extraAuthors[i],))
+            result = cursor.fetchone()
+            if (int(result[0]) == 0):
+                alreadyRegistered = False
+                offendingAuthor = extraAuthors[i]
+                break;
+            i+=1
 
+        if (alreadyRegistered == False):
+            print("Author with id %d is not in our database. Please have them register and try again.\n" % int(offendingAuthor))
+            return
+
+        cursor.execute("""INSERT INTO Manuscript (`Title`,`DateReceived`,`Status`,`DateSent`,`NumPages`,`Order`,`BeginningPageNum`,`idIssue`,`RICode`,`EditorID`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(title,"date","submitted",None,None,None,None,None,Affiliation,2,))
+        con.commit()
+        manuscriptNum = cursor.lastrowid
+        print("Your Manuscript was added to our system with the system-wide unique id: %d\n" % manuscriptNum)
+        #insert into Authored here
+        cursor.execute("""INSERT INTO Authored (`AuthorID`,`ManuscriptNum`,`AuthorOrder`) VALUES (%s,%s,%s)""",(int(authorId),int(manuscriptNum),1,))
+        con.commit()
+        i = 0
+        while (i<numAuthors):
+            cursor.execute("""INSERT INTO Authored (`AuthorID`,`ManuscriptNum`,`AuthorOrder`) VALUES (%s,%s,%s)""",(int(extraAuthors[i]),int(manuscriptNum),i+2))
+            con.commit()
+            i+=1
+        cursor.execute("""INSERT INTO blob_table (`ManuscriptNum`,`paper`) VALUES (%s,%s)""",(int(manuscriptNum),fileName))
+        con.commit()
         cursor.close()
-        print("Your Manuscript was added to our system with the system-wide unique id:%d" % putIDHere)
 
     except mysql.connector.Error as e:
         print("SQL Error: {0}".format(e.msg))
