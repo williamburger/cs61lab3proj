@@ -47,6 +47,9 @@ def AuthorSubmit(authorId):
     title = user_input
     user_input = raw_input("Enter Affiliation: ")
     Affiliation = int(user_input)
+    if (Affiliation < 1 or Affiliation > 123):
+        print("RICode must be between 1 and 123")
+        AuthorSubmit(authorId)
     user_input = raw_input("Enter Number of Contributing Authors: ")
     numAuthors = int(user_input)
     i = 0
