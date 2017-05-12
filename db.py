@@ -18,7 +18,7 @@ MASTER_KEY = ''
 def AuthorStatus(authorId):
     try:
         cursor = con.cursor()
-        cursor.execute("SELECT ManuscriptNum,Title,status,DateReceived FROM LeadAuthorManuscripts WHERE AuthorID=%s",(authorId,))
+        cursor.execute("SELECT `ManuscriptNum`,`Title`,`status`,`DateReceived` FROM LeadAuthorManuscripts WHERE AuthorID=%s",(authorId,))
         row = cursor.fetchone()
         numManuscripts = 0
         while row is not None:
@@ -58,6 +58,11 @@ def AuthorSubmit(authorId):
     extraAuthors = []
     while (i<numAuthors):
         user_input = raw_input("Enter Author %d's id: " % (i+1))
+        try:
+            int(user_input)
+        except ValueError:
+            print("\nThat is an invalid id\n")
+            return
         extraAuthors.append(user_input)
         i=i+1
 
@@ -116,12 +121,6 @@ def ManuscriptRetract(authorId,manuscriptNum):
                 numResults=numResults+1
                 result=cursor.fetchone()
             if (numResults > 0):
-                cursor.execute("""DELETE FROM Authored WHERE AuthorID=%s AND ManuscriptNum=%s""",(authorId,manuscriptNum,))
-                con.commit()
-                cursor.execute("""DELETE FROM Review WHERE ManuscriptNum=%s""",(manuscriptNum,))
-                con.commit()
-                cursor.execute("""DELETE FROM blob_table WHERE ManuscriptNum=%s""",(manuscriptNum,))
-                con.commit()
                 cursor.execute("""DELETE FROM Manuscript WHERE ManuscriptNum=%s """,(manuscriptNum,))
                 con.commit()
             else:
@@ -143,12 +142,20 @@ def GiveAuthorOptions(authorId):
     print("Enter 'RETRACT ManuscriptID' to remove one of your manuscripts with its given ID.")
     user_input = raw_input("\nEnter: ")
     user_input_words = user_input.split(' ')
+    if (len(user_input_words) > 2 or len(user_input_words) < 1):
+        print("That's not a properly formed command. Please Try Again.")
     if (user_input == "STATUS"):
         AuthorStatus(authorId)
     elif (user_input == "SUBMIT"):
         AuthorSubmit(authorId)
     elif (user_input_words[0] == "RETRACT"):
-        ManuscriptRetract(authorId,user_input_words[1])
+        if (len(user_input_words)==2):
+            manId = user_input_words[1]
+            try:
+                int(manId)
+                ManuscriptRetract(authorId,user_input_words[1])
+            except ValueError:
+                print("That's not a proper manuscript id. Try again.")
     else:
         print("Uh Oh. That's not a properly formed command. Please Try again.")
         GiveAuthorOptions(authorId)
