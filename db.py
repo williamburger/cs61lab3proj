@@ -6,6 +6,7 @@ import getpass
 import editor
 import utils
 import reviewer
+import random
 
 SERVER   = "sunapee.cs.dartmouth.edu"        # db server to connect to
 USERNAME = "aogren"                            # user to connect as
@@ -80,8 +81,13 @@ def AuthorSubmit(authorId):
         if (alreadyRegistered == False):
             print("Author with id %d is not in our database. Please have them register and try again.\n" % int(offendingAuthor))
             return
-
-        cursor.execute("""INSERT INTO Manuscript (`Title`,`DateReceived`,`Status`,`DateSent`,`NumPages`,`Order`,`BeginningPageNum`,`idIssue`,`RICode`,`EditorID`) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",(title,"date","submitted",None,None,None,None,None,Affiliation,2,))
+        print('here\n')
+        cursor.execute("""SELECT MAX(EditorID) AS EditorID FROM Editor""")
+        row = cursor.fetchone()
+        print(row[0])
+        editor = random.randint(1,int(row[0]))
+        print(type(editor))
+        cursor.execute("INSERT INTO Manuscript (`Title`,`DateReceived`,`Status`,`DateSent`,`NumPages`,`Order`,`BeginningPageNum`,`idIssue`,`RICode`,`EditorID`) VALUES (%s,STR_TO_DATE(%s,'%m/%d/%Y'),%s,%s,%s,%s,%s,%s,%s,%s)",(title,time.strftime("%x"),"submitted",None,None,None,None,None,Affiliation,str(editor),))
         con.commit()
         manuscriptNum = cursor.lastrowid
         print("Your Manuscript was added to our system with the system-wide unique id: %d\n" % manuscriptNum)
@@ -95,6 +101,7 @@ def AuthorSubmit(authorId):
             i+=1
         cursor.execute("""INSERT INTO blob_table (`ManuscriptNum`,`paper`) VALUES (%s,%s)""",(int(manuscriptNum),fileName))
         con.commit()
+
         cursor.close()
 
     except mysql.connector.Error as e:
