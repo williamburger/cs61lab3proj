@@ -2,6 +2,7 @@ from __future__ import print_function        # make print a function
 import mysql.connector                       # mysql functionality
 import sys                                   # for misc errors
 import time
+import getpass
 import editor
 import utils
 import reviewer
@@ -10,6 +11,7 @@ SERVER   = "sunapee.cs.dartmouth.edu"        # db server to connect to
 USERNAME = "aogren"                            # user to connect as
 PASSWORD = "Kellyo1995"                            # user's password
 DATABASE = "aogren_db"                              # db to user
+MASTER_KEY = ''
 
 
 
@@ -152,27 +154,32 @@ def GiveAuthorOptions(authorId):
         GiveAuthorOptions(authorId)
     GiveAuthorOptions(authorId)
 
-def loginAuthor(authorId):
+def loginAuthor(authorId, password):
     try:
         cursor = con.cursor()
-        cursor.execute("""SELECT FirstName, MiddleName, LastName, Address FROM Author WHERE AuthorID=%s""", (authorId,))
+        cursor.execute("""SELECT * FROM authorCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `AuthorID`=%s""",(password,MASTER_KEY,authorId,))
         row = cursor.fetchone()
-        while row is not None:
-            print('Welcome Back!\n')
-            print ("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
-            print("Address: %s" % (str(row[3])))
+        if (row == None):
+            print("Sorry, that's an invalid ID and Password combination.\n")
+        else:
+            cursor.execute("""SELECT FirstName, MiddleName, LastName, Address FROM Author WHERE AuthorID=%s""", (authorId,))
             row = cursor.fetchone()
-        cursor.close()
+            while row is not None:
+                print('Welcome Back!\n')
+                print ("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
+                print("Address: %s" % (str(row[3])))
+                row = cursor.fetchone()
+            cursor.close()
 
-        AuthorStatus(authorId)
-        GiveAuthorOptions(authorId)
+            AuthorStatus(authorId)
+            GiveAuthorOptions(authorId)
 
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def createAuthor(name, email, address):
+def createAuthor(name, email, address, password):
      POST = ""
      PARAMS = None
      try:
@@ -187,18 +194,24 @@ def createAuthor(name, email, address):
          cursor.execute(POST,PARAMS)
          con.commit()
          newid = cursor.lastrowid
-         print("Your unique id is %s", str(newid))
+         print("Your unique id is %s" % str(newid))
+
+         #Enter password
+         cursor.execute("""INSERT INTO authorCredentials (`password`,`AuthorID`) VALUES (AES_ENCRYPT(%s,%s),%s)""",(password,MASTER_KEY,int(newid),))
+         con.commit()
          cursor.close()
-         loginAuthor(str(newid))
+         loginAuthor(str(newid), password)
      except mysql.connector.Error as e:        # catch SQL errors
          print("SQL Error: {0}".format(e.msg))
      except:                                   # anything else
          print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def registerAuthor(n, e, a):
+def registerAuthor(n, e, a,p,p2):
     name = n
     email = e
     address = a
+    password = p
+    passwordConfirm = p2
     nameArr = None
     if (name is None):
         user_input = raw_input("Please enter your full name.\n")
@@ -206,24 +219,37 @@ def registerAuthor(n, e, a):
         nameArr = name.split(' ')
         if (utils.checkLength(name, 135)):
             name = None
-            registerAuthor(name, email, address)
+            registerAuthor(name, email, address, password,passwordConfirm)
         elif (len(nameArr) < 2 or len(nameArr) > 3):
             name = None
             print('Your name must be 2 to 3 words in length. Sorry for any inconvenience. Try again.\n')
-            registerAuthor(name, email, address)
+            registerAuthor(name, email, address, password, passwordConfirm)
     if (email is None):
         user_input = raw_input("Please enter your email address.\n")
         email = user_input
         if utils.checkLength(email, 100):
             email = None
-            registerAuthor(name, email, address)
+            registerAuthor(name, email, address, password, passwordConfirm)
     if (address is None):
         user_input = raw_input("Please enter your home address.\n")
         address = user_input
         if utils.checkLength(address, 100):
             address = None
-            registerAuthor(name, email, address)
-    createAuthor(nameArr, email, address)
+            registerAuthor(name, email, address, password, passwordConfirm)
+    if (password is None):
+        # user_input = raw_input("Please enter a password: \n")
+        user_input = getpass.getpass("Password: ")
+        password = user_input
+    if (passwordConfirm is None):
+        # user_input = raw_input("Please confirm password: \n")
+        user_input = getpass.getpass("Please confirm password: ")
+        passwordConfirm = user_input
+    if (password != passwordConfirm):
+        print("Sorry, those passwords did not match. Try registering again.")
+        registerAuthor(None,None,None,None,None)
+
+
+    createAuthor(nameArr, email, address, password)
 
 if __name__ == "__main__":
     try:
@@ -231,39 +257,47 @@ if __name__ == "__main__":
       con = mysql.connector.connect(host=SERVER,user=USERNAME,password=PASSWORD,
                                     database=DATABASE)
 
-      print("Connection established. Welcome.")
+      print("Connection established. Welcome.\n")
+      user_input = raw_input("First, please enter the master key for encrypting passwords: ")
+      MASTER_KEY = user_input
 
       user_input = raw_input("If You're an Author, Enter 'Author' \n"
                              "If You're an Editor, Enter 'Editor' \n"
-                             "If You're a Reviewer, Enter 'Reviewer'\n")
+                             "If You're a Reviewer, Enter 'Reviewer'\n"
+                             "To Logout, Enter 'Logout'\n")
       if (user_input == 'Author'):
          user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
                 "Otherwise, type 'Register'\n")
          if (user_input == 'Register'):
-             registerAuthor(None, None, None)
+             registerAuthor(None, None, None,None, None)
          else:
-             loginAuthor(user_input)
+             password = getpass.getpass("Please enter your password: ")
+             loginAuthor(user_input, password)
       elif (user_input == 'Editor'):
           user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
                  "Otherwise, type 'Register'\n")
           if (user_input == 'Register'):
-                editor.registerEditor(None,con)
+                editor.registerEditor(None,None,None,MASTER_KEY,con)
           else:
-                editor.loginEditor(user_input,con)
+                password = getpass.getpass("Please enter your password: ")
+                editor.loginEditor(user_input,password,MASTER_KEY,con)
       elif (user_input == 'Reviewer'):
           user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
                  "If You wish to resign, type 'RESIGN <id>'\n"
                  "Otherwise, type 'Register'\n")
           inputArr = user_input.split(' ')
           if (user_input == 'Register'):
-                reviewer.registerReviewer(None,None,None,con)
+                reviewer.registerReviewer(None,None,None,None,None,MASTER_KEY,con)
           elif(inputArr[0] =='RESIGN'):
                 reviewer.resign(inputArr[1],con)
           else:
-                reviewer.loginReviewer(user_input,con)
+                password = getpass.getpass("Please enter your password: ")
+                reviewer.loginReviewer(user_input,password,MASTER_KEY,con)
+      elif (user_input == "Logout"):
+          print("Ta ta for now!\n")
+          con.close()
       else:
-          print('Oh no')
-
+          print("Shutting down.\n")
     except mysql.connector.Error as e:        # catch SQL errors
      print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else

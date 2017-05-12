@@ -3,11 +3,12 @@ import mysql.connector                       # mysql functionality
 import sys                                   # for misc errors
 import time
 import utils
+import getpass
 
 # Register an Editor
 # The editor ID will be handled in the database
 # in createEditor will need to return the unique ID
-def createEditor(name,con):
+def createEditor(name,password,master,con):
     POST = ""
     PARAMS = None
     try:
@@ -22,41 +23,61 @@ def createEditor(name,con):
         con.commit()
         newid = cursor.lastrowid
         print("Your unique id is " + str(newid))
+        cursor.execute("""INSERT INTO editorCredentials (`password`,`EditorID`) VALUES (AES_ENCRYPT(%s,%s),%s)""",(str(password),str(master),int(newid),))
+        con.commit()
         cursor.close()
-        loginEditor(newid,con)
+        loginEditor(newid,password,master,con)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def registerEditor(n,con):
+def registerEditor(n,p,p2,master,con):
     name = n
+    password = p
+    passwordConfirm = p2
     if(name is None):
         user_input = raw_input("Please enter your full name.\n")
-        name = user_input
         name = user_input
         nameArr = name.split(' ')
         if (utils.checkLength(name, 135)):
             name = None
-            registerEditor(name)
+            registerEditor(name,password,passwordConfirm,master,con)
         elif (len(nameArr) < 2 or len(nameArr) > 3):
             name = None
             print('Your name must be 2 to 3 words in length. Sorry for any inconvenience. Try again.\n')
-            registerEditor(name)
+            registerEditor(name,password,passwordConfirm,master,con)
+        if (password is None):
+            # user_input = raw_input("Please enter a password: \n")
+            user_input = getpass.getpass("Password: ")
+            password = user_input
+        if (passwordConfirm is None):
+            # user_input = raw_input("Please confirm password: \n")
+            user_input = getpass.getpass("Please confirm password: ")
+            passwordConfirm = user_input
+        if (password != passwordConfirm):
+            print("Sorry, those passwords did not match. Try registering again.")
+            registerEditor(None,None,None,master,con)
     nameArr = name.split(' ')
-    createEditor(nameArr,con)
+    createEditor(nameArr,password,master,con)
 
-def loginEditor(edid,con):
+def loginEditor(edid,password,master,con):
+
     try:
         cursor = con.cursor()
-        cursor.execute("SELECT FirstName, MiddleName, LastName FROM Editor WHERE EditorID=%s",(edid,))
+        cursor.execute("""SELECT * FROM editorCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `EditorID`=%s""",(password,master,edid,))
         row = cursor.fetchone()
-        while row is not None:
-            print('Welcome Back!\n')
-            print("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
+        if (row == None):
+            print("Sorry, that's an invalid ID and Password combination.\n")
+        else:
+            cursor.execute("SELECT FirstName, MiddleName, LastName FROM Editor WHERE EditorID=%s",(edid,))
             row = cursor.fetchone()
-        cursor.close()
-        statusCommand(edid,con)
+            while row is not None:
+                print('Welcome Back!\n')
+                print("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
+                row = cursor.fetchone()
+            cursor.close()
+            statusCommand(edid,con)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
