@@ -82,13 +82,16 @@ def statusCommand(revid,con):
 def loginReviewer(revid,password,master,con):
     try:
         cursor = con.cursor()
-        cursor.execute("""SELECT * FROM reviewerCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `ReviewerNum`=%s""",(password,master,revid,))
+        cursor.execute("""SELECT * FROM reviewerCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `ReviewerNum`=%s """,(password,master,revid,))
         row = cursor.fetchone()
         if (row == None):
             print("Sorry, that's an invalid ID and Password combination.\n")
         else:
-            cursor.execute("SELECT FirstName, MiddleName, LastName FROM Reviewer WHERE ReviewerNum=%s",(revid,))
+            cursor.execute("SELECT FirstName, MiddleName, LastName FROM Reviewer WHERE ReviewerNum=%s AND `Status`='active'",(revid,))
             row = cursor.fetchone()
+            if(row==None):
+                print('No longer an active reviewer')
+                return
             while row is not None:
                 print('Welcome Back!\n')
                 print("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
