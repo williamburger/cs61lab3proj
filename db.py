@@ -271,7 +271,8 @@ if __name__ == "__main__":
       # initialize db connection
     #   con = mysql.connector.connect(host=SERVER,user=USERNAME,password=PASSWORD,
     #                                 database=DATABASE)
-      client = MongoClient('mongodb://Team23=Muv58mTtDaweFhrU@cluster0-shard-00-00-ppp7l.mongodb.net:27017,cluster0-shard-00-01-ppp7l.mongodb.net:27017,cluster0-shard-00-02-ppp7l.mongodb.net:27017/Team23DB?replicaSet=Cluster0-shard-0&ssl=true')
+      HOST = "mongodb://Team23:Muv58mTtDaweFhrU@cluster0-shard-00-00-ppp7l.mongodb.net:27017,cluster0-shard-00-01-ppp7l.mongodb.net:27017,cluster0-shard-00-02-ppp7l.mongodb.net:27017/Team23DB?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin"
+      client = MongoClient(HOST);
       db = client.Team23DB
       collection = db.burger
       collection.insert_one({ "text": "hello" })
