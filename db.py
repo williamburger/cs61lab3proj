@@ -1,5 +1,6 @@
 from __future__ import print_function        # make print a function
-import mysql.connector                       # mysql functionality
+import pymongo                  # mysql functionality
+from pymongo import MongoClient
 import sys                                   # for misc errors
 import time
 import getpass
@@ -268,52 +269,59 @@ def registerAuthor(n, e, a,p,p2):
 if __name__ == "__main__":
     try:
       # initialize db connection
-      con = mysql.connector.connect(host=SERVER,user=USERNAME,password=PASSWORD,
-                                    database=DATABASE)
+    #   con = mysql.connector.connect(host=SERVER,user=USERNAME,password=PASSWORD,
+    #                                 database=DATABASE)
+      client = MongoClient('mongodb://Team23=Muv58mTtDaweFhrU@cluster0-shard-00-00-ppp7l.mongodb.net:27017,cluster0-shard-00-01-ppp7l.mongodb.net:27017,cluster0-shard-00-02-ppp7l.mongodb.net:27017/Team23DB?replicaSet=Cluster0-shard-0&ssl=true')
+      db = client.Team23DB
+      collection = db.burger
+      collection.insert_one({ "text": "hello" })
 
-      print("Connection established. Welcome.\n")
-      user_input = raw_input("First, please enter the master key for encrypting passwords: ")
-      MASTER_KEY = user_input
+    except ValueError:
+      print("There was an error")
 
-      user_input = raw_input("If You're an Author, Enter 'Author' \n"
-                             "If You're an Editor, Enter 'Editor' \n"
-                             "If You're a Reviewer, Enter 'Reviewer'\n"
-                             "To Logout, Enter 'Logout'\n")
-      if (user_input == 'Author'):
-         user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
-                "Otherwise, type 'Register'\n")
-         if (user_input == 'Register'):
-             registerAuthor(None, None, None,None, None)
-         else:
-             password = getpass.getpass("Please enter your password: ")
-             loginAuthor(user_input, password)
-      elif (user_input == 'Editor'):
-          user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
-                 "Otherwise, type 'Register'\n")
-          if (user_input == 'Register'):
-                editor.registerEditor(None,None,None,MASTER_KEY,con)
-          else:
-                password = getpass.getpass("Please enter your password: ")
-                editor.loginEditor(user_input,password,MASTER_KEY,con)
-      elif (user_input == 'Reviewer'):
-          user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
-                 "If You wish to resign, type 'RESIGN <id>'\n"
-                 "Otherwise, type 'Register'\n")
-          inputArr = user_input.split(' ')
-          if (user_input == 'Register'):
-                reviewer.registerReviewer(None,None,None,None,None,MASTER_KEY,con)
-          elif(inputArr[0] =='RESIGN'):
-                reviewer.resign(inputArr[1],con)
-          else:
-                password = getpass.getpass("Please enter your password: ")
-                reviewer.loginReviewer(user_input,password,MASTER_KEY,con)
-      elif (user_input == "Logout"):
-          print("Ta ta for now!\n")
-          con.close()
-      else:
-          print("Shutting down.\n")
-    except mysql.connector.Error as e:        # catch SQL errors
-     print("SQL Error: {0}".format(e.msg))
-    except:                                   # anything else
-     print("Unexpected error: {0}".format(sys.exc_info()[0]))
-    con.close()
+    #   print("Connection established. Welcome.\n")
+    #   user_input = raw_input("First, please enter the master key for encrypting passwords: ")
+    #   MASTER_KEY = user_input
+    #
+    #   user_input = raw_input("If You're an Author, Enter 'Author' \n"
+    #                          "If You're an Editor, Enter 'Editor' \n"
+    #                          "If You're a Reviewer, Enter 'Reviewer'\n"
+    #                          "To Logout, Enter 'Logout'\n")
+    #   if (user_input == 'Author'):
+    #      user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
+    #             "Otherwise, type 'Register'\n")
+    #      if (user_input == 'Register'):
+    #          registerAuthor(None, None, None,None, None)
+    #      else:
+    #          password = getpass.getpass("Please enter your password: ")
+    #          loginAuthor(user_input, password)
+    #   elif (user_input == 'Editor'):
+    #       user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
+    #              "Otherwise, type 'Register'\n")
+    #       if (user_input == 'Register'):
+    #             editor.registerEditor(None,None,None,MASTER_KEY,con)
+    #       else:
+    #             password = getpass.getpass("Please enter your password: ")
+    #             editor.loginEditor(user_input,password,MASTER_KEY,con)
+    #   elif (user_input == 'Reviewer'):
+    #       user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
+    #              "If You wish to resign, type 'RESIGN <id>'\n"
+    #              "Otherwise, type 'Register'\n")
+    #       inputArr = user_input.split(' ')
+    #       if (user_input == 'Register'):
+    #             reviewer.registerReviewer(None,None,None,None,None,MASTER_KEY,con)
+    #       elif(inputArr[0] =='RESIGN'):
+    #             reviewer.resign(inputArr[1],con)
+    #       else:
+    #             password = getpass.getpass("Please enter your password: ")
+    #             reviewer.loginReviewer(user_input,password,MASTER_KEY,con)
+    #   elif (user_input == "Logout"):
+    #       print("Ta ta for now!\n")
+    #       con.close()
+    #   else:
+    #       print("Shutting down.\n")
+    # except mysql.connector.Error as e:        # catch SQL errors
+    #  print("SQL Error: {0}".format(e.msg))
+    # except:                                   # anything else
+    #  print("Unexpected error: {0}".format(sys.exc_info()[0]))
+    # con.close()
