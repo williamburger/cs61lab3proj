@@ -218,12 +218,11 @@ if __name__ == "__main__":
                  "Otherwise, type 'Register'\n")
           inputArr = user_input.split(' ')
           if (user_input == 'Register'):
-                reviewer.registerReviewer(None,None,None,None,None,MASTER_KEY,con)
+                reviewer.registerReviewer(None,None,None,None,db)
           elif(inputArr[0] =='RESIGN'):
                 reviewer.resign(inputArr[1],con)
           else:
-                password = getpass.getpass("Please enter your password: ")
-                reviewer.loginReviewer(user_input,password,MASTER_KEY,con)
+                reviewer.loginReviewer(ObjectId(user_input),db)
       elif (user_input == "Logout"):
           print("Ta ta for now!\n")
           con.close()

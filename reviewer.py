@@ -55,117 +55,100 @@ def optionsReviewer(revid,con):
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-####THIS IS NOT DONE YET, STILL TRYING TO FIGURE IT OUT
-def statusCommand(revid,con):
+def statusCommand(revid,db):
     try:
-        cursor = con.cursor()
-        args = (1)
-        cursor.execute("SELECT * FROM ReviewStatusAll WHERE ReviewerNum=%s",(revid,))
-
-        row = cursor.fetchone()
-
-        numManuscripts = 0
-        while row is not None:
-            print("""ReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
-            (str(row[0]),str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]),str(row[7]),str(row[8])))
-            numManuscripts+=1
-            row = cursor.fetchone()
-        if (numManuscripts == 0):
+        pipeline = [
+            {"$unwind": "$reviews"},
+            { "$match": {"reviewerid":revid}}
+        ]
+        reviews = db.manuscript.aggregate(pipeline)
+        print(reviews)
+        print(list(reviews))
+        # reviews = db.manuscript.find({ "reviews": { "$elemMatch": { "reviewerid": ObjectId(revid) }}})
+        # print('sup')
+        # print(list(reviews))
+        numReviews = len(list(reviews))
+        print('herio')
+        i = 0
+        while i < numReviews:
+            print('hi')
+            # print("""\nReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
+            # (reviews[i]["reviewerid"],reviews[i]["datereceived"],reviews[i]["_id"],reviews[i]["title"],reviews[i]["reviews"],))
+            # i+=1
+        if (numReviews == 0):
             print("You currently have no manuscripts for which you are the reviewer.")
-        cursor.close()
-        optionsReviewer(revid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
-        print("SQL Error: {0}".format(e.msg))
+        # while row is not None:
+        #     print("""ReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
+        #     (str(row[0]),str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]),str(row[7]),str(row[8])))
+        #     numManuscripts+=1
+        #     row = cursor.fetchone()
+        # if (numManuscripts == 0):
+        #     print("You currently have no manuscripts for which you are the reviewer.")
+        # cursor.close()
+        # optionsReviewer(revid,con)
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print("Connection Failure")
+        print(err)
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def loginReviewer(revid,password,master,con):
+
+def loginReviewer(revid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("""SELECT * FROM reviewerCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `ReviewerNum`=%s """,(password,master,revid,))
-        row = cursor.fetchone()
-        if (row == None):
-            print("Sorry, that's an invalid ID and Password combination.\n")
-        else:
-            cursor.execute("SELECT FirstName, MiddleName, LastName FROM Reviewer WHERE ReviewerNum=%s AND `Status`='active'",(revid,))
-            row = cursor.fetchone()
-            if(row==None):
-                print('No longer an active reviewer')
-                return
-            while row is not None:
-                print('Welcome Back!\n')
-                print("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
-                row = cursor.fetchone()
-            cursor.close()
-            statusCommand(revid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
-        print("SQL Error: {0}".format(e.msg))
+        reviewer = db.reviewers.find({"_id":revid,"status":"active"})
+        revList = list(reviewer)
+        if (len(revList)==0):
+            print("That is not an active reviewer.")
+            return
+        print('Welcome Back!\n')
+        print("Name: %s\n" % (revList[0]["name"]))
+        statusCommand(revid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print("Connection Failure")
+        print(err)
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def createReviewer(name,email,affiliation,password,master,con):
-    POST = ""
-    PARAMS = None
+def createReviewer(name,email,affiliation,interestArr,db):
+    print('got here')
     try:
-        cursor=con.cursor()
-        if(len(name)==2):
-            POST = "INSERT INTO Reviewer (FirstName,MiddleName,LastName,ReviewerEmail,Affiliation) VALUES (%s,%s,%s,%s,%s)"
-            PARAMS = (name[0],None,name[1],email,affiliation)
-        else:
-            POST = "INSERT INTO Reviewer (FirstName,MiddleName,LastName,ReviewerEmail,Affiliation) VALUES (%s,%s,%s,%s,%s)"
-            PARAMS = (name[0],name[1],name[2],email,affiliation)
-        cursor.execute(POST,PARAMS)
-        con.commit()
-        newid = cursor.lastrowid
-        print("Your unique id is " + str(newid))
-        cursor.execute("""INSERT INTO reviewerCredentials (`password`,`ReviewerNum`) VALUES (AES_ENCRYPT(%s,%s),%s)""",(str(password),str(master),int(newid),))
-        con.commit()
-        cursor.close()
-        loginReviewer(newid,password,master,con)
-    except mysql.connector.Error as e:        # catch SQL errors
-        print("SQL Error: {0}".format(e.msg))
+        newid = db.reviewers.insert_one({ "name": name, "email": email, "affiliation": affiliation,"status":"active", "interests":interestArr }).inserted_id
+        print("Your unique id is %s" % str(newid))
+        loginReviewer(newid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as err:
+        print("Connection Failure")
+        print(err)
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def registerReviewer(n,e,a,p,p2,master,con):
+def registerReviewer(n,e,a,i,db):
     name = n
     email = e
     affiliation = a
-    password = p
-    passwordConfirm = p2
+    interests = i
+    interestArr = []
     if(name is None):
         user_input = raw_input("Please enter your full name.\n")
         name = user_input
-        nameArr = name.split(' ')
-        if (utils.checkLength(name, 135)):
-            name = None
-            registerReviewer(name,email,affiliation,password,passwordConfirm,master,con)
-        elif (len(nameArr) < 2 or len(nameArr) > 3):
-            name = None
-            print('Your name must be 2 to 3 words in length. Sorry for any inconvenience. Try again.\n')
-            registerReviewer(name,email,affiliation,password,passwordConfirm,master,con)
-    nameArr = name.split(' ')
     if (email is None):
         user_input = raw_input("Please enter your email address.\n")
         email = user_input
-        if utils.checkLength(email, 100):
-            email = None
-            registerReviewer(name,email,affiliation,password,passwordConfirm,master,con)
     if (affiliation is None):
         user_input = raw_input("Please enter your affiliation.\n")
         affiliation = user_input
-        if utils.checkLength(affiliation, 100):
-            affiliation = None
-            registerReviewer(name,email,affiliation,password,passwordConfirm,master,con)
-    if (password is None):
-        # user_input = raw_input("Please enter a password: \n")
-        user_input = getpass.getpass("Password: ")
-        password = user_input
-    if (passwordConfirm is None):
-        # user_input = raw_input("Please confirm password: \n")
-        user_input = getpass.getpass("Please confirm password: ")
-        passwordConfirm = user_input
-    if (password != passwordConfirm):
-        print("Sorry, those passwords did not match. Try registering again.")
-        registerReviewer(None,None,None,None,None,master,con)
-    createReviewer(nameArr,email,affiliation,password,master,con)
+    if (interests is None):
+        interests = db.interests.find_one()
+        ricodes = interests["ricodes"]
+        i=1
+        for ricode in ricodes:
+            print("%d:%s\n" % (i,ricode))
+            i+=1
+        print("Please enter the number of interests that you have out of this list:\n")
+        user_input = raw_input("Enter: ")
+        i = 0
+        while i < int(user_input):
+            k = raw_input("Enter the corresponding id of interest %d: " % (i+1))
+            interestArr.append(k)
+            i+=1
+    print('got to before createReviewer')
+    createReviewer(name,email,affiliation,interestArr,db)
