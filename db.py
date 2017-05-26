@@ -186,7 +186,6 @@ def registerAuthor(n, e, a,aff,db):
 
 if __name__ == "__main__":
     try:
-
       HOST = "mongodb://Team23:Muv58mTtDaweFhrU@cluster0-shard-00-00-ppp7l.mongodb.net:27017,cluster0-shard-00-01-ppp7l.mongodb.net:27017,cluster0-shard-00-02-ppp7l.mongodb.net:27017/Team23DB?ssl=true&replicaSet=Cluster0-shard-0&authSource=admin"
       client = MongoClient(HOST);
       db = client.Team23DB
@@ -229,7 +228,7 @@ if __name__ == "__main__":
       else:
           print("Shutting down.\n")
     except pymongo.errors.ServerSelectionTimeoutError as err:
-     print("Connection Failure")
-     print(err)
+      print("Connection Failure")
+      print(err)
     except:                                   # anything else
-     print("Unexpected error: {0}".format(sys.exc_info()[0]))
+      print("Unexpected error: {0}".format(sys.exc_info()[0]))

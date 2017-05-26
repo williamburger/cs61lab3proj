@@ -4,187 +4,145 @@ import sys                                   # for misc errors
 import time
 import utils
 import getpass
+from bson.objectid import ObjectId
 
 # Register an Editor
 # The editor ID will be handled in the database
 # in createEditor will need to return the unique ID
-def createEditor(name,password,master,con):
-    POST = ""
-    PARAMS = None
+def createEditor(name,db):
     try:
-        cursor=con.cursor()
-        if(len(name)==2):
-            POST = "INSERT INTO Editor (FirstName,MiddleName,LastName) VALUES (%s,%s,%s)"
-            PARAMS = (name[0],None,name[1])
-        else:
-            POST = "INSERT INTO Editor (FirstName,MiddleName,LastName) VALUES (%s,%s,%s)"
-            PARAMS = (name[0],name[1],name[2])
-        cursor.execute(POST,PARAMS)
-        con.commit()
-        newid = cursor.lastrowid
+        newid = db.editors.insert_one({"name":name}).inserted_id
         print("Your unique id is " + str(newid))
-        cursor.execute("""INSERT INTO editorCredentials (`password`,`EditorID`) VALUES (AES_ENCRYPT(%s,%s),%s)""",(str(password),str(master),int(newid),))
-        con.commit()
-        cursor.close()
-        loginEditor(newid,password,master,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        loginEditor(newid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def registerEditor(n,p,p2,master,con):
+def registerEditor(n,db):
     name = n
-    password = p
-    passwordConfirm = p2
     if(name is None):
         user_input = raw_input("Please enter your full name.\n")
         name = user_input
-        nameArr = name.split(' ')
-        if (utils.checkLength(name, 135)):
-            name = None
-            registerEditor(name,password,passwordConfirm,master,con)
-        elif (len(nameArr) < 2 or len(nameArr) > 3):
-            name = None
-            print('Your name must be 2 to 3 words in length. Sorry for any inconvenience. Try again.\n')
-            registerEditor(name,password,passwordConfirm,master,con)
-        if (password is None):
-            # user_input = raw_input("Please enter a password: \n")
-            user_input = getpass.getpass("Password: ")
-            password = user_input
-        if (passwordConfirm is None):
-            # user_input = raw_input("Please confirm password: \n")
-            user_input = getpass.getpass("Please confirm password: ")
-            passwordConfirm = user_input
-        if (password != passwordConfirm):
-            print("Sorry, those passwords did not match. Try registering again.")
-            registerEditor(None,None,None,master,con)
-    nameArr = name.split(' ')
-    createEditor(nameArr,password,master,con)
+    createEditor(name,db)
 
-def loginEditor(edid,password,master,con):
+def loginEditor(edid,db):
 
     try:
-        cursor = con.cursor()
-        cursor.execute("""SELECT * FROM editorCredentials WHERE `password`=AES_ENCRYPT(%s,%s) AND `EditorID`=%s""",(password,master,edid,))
-        row = cursor.fetchone()
-        if (row == None):
-            print("Sorry, that's an invalid ID and Password combination.\n")
-        else:
-            cursor.execute("SELECT FirstName, MiddleName, LastName FROM Editor WHERE EditorID=%s",(edid,))
-            row = cursor.fetchone()
-            while row is not None:
-                print('Welcome Back!\n')
-                print("Name: %s %s %s" % (str(row[0]),str(row[1]),str(row[2])))
-                row = cursor.fetchone()
-            cursor.close()
-            statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        result = db.editors.find_one({"_id":ObjectId(edid)})
+        if(result["name"]==None):
+            print('not a valid id')
+            return;
+        print('Welcome Back!')
+        print(result["name"])
+        statusCommand(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def assign(manNum,revId,edid,con):
+def assign(manNum,revId,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("INSERT INTO `Review` (`ManuscriptNum`,`ReviewerNum`,`DateReceived`) VALUES(%s,%s,STR_TO_DATE(%s,'%m/%d/%Y'))",(manNum,revId,time.strftime("%x")))
-        con.commit()
-        print('%s',time.strftime("%x"))
-        print('INSERT COMPLETE')
-        statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviews":{"reviewerid":ObjectId(revId) }}})
+        statusCommand(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def reject(manNum,edid,con):
+def reject(manNum,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("UPDATE `Manuscript` SET `Status` = 'rejected', `DateSent` = STR_TO_DATE(%s,'%m/%d/%Y') WHERE `ManuscriptNum`=%s",(time.strftime("%x"),manNum))
-        con.commit()
-        print('%s',time.strftime("%x"))
+        result=db.manuscript.find_one_and_update({"_id":ObjectId(manNum)}, {"$set":{"status":"rejected","dateupdated":time.strftime("%x")}})
         print('Rejected ManuscriptNum ' + manNum)
-        statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        statusCommand(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def accept(manNum,edid,con):
+def accept(manNum,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("UPDATE `Manuscript` SET `Status` = 'accepted', `DateSent` = STR_TO_DATE(%s,'%m/%d/%Y') WHERE `ManuscriptNum`=%s",(time.strftime("%x"),manNum))
-        con.commit()
-        print('%s',time.strftime("%x"))
+        result=db.manuscript.find_one_and_update({"_id":ObjectId(manNum)}, {"$set":{"status":"accepted","dateupdated":time.strftime("%x")}})
         print('Accepted ManuscriptNum ' + manNum)
-        statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        statusCommand(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def typeset(manNum,pp,edid,con):
+
+def typeset(manNum,pp,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("UPDATE `Manuscript` SET `Status` = 'typeset', `NumPages` = %s WHERE `ManuscriptNum`=%s",(pp,manNum))
-        con.commit()
-        print('%s',time.strftime("%x"))
-        print('Rejected ManuscriptNum ' + manNum)
-        cursor.close()
-        statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        result=db.manuscript.find_one_and_update({"_id":ObjectId(manNum)}, {"$set":{"status":"typeset","dateupdated":time.strftime("%x"),"numpages":pp}})
+        print('Typeset ManuscriptNum ' + manNum)
+        statusCommand(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def schedule(manNum,issueID,edid,con):
+def schedule(manNum,issueID,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("SELECT Status,NumPages FROM Manuscript WHERE ManuscriptNum=%s",(manNum,))
-        row = cursor.fetchone()
-        cursor.close()
-        if(row[0] == 'accepted'):
-            numPage = row[1]
-            cursor = con.cursor()
-            cursor.execute("SELECT NumPages FROM Issue WHERE idIssue=%s",(issueID,))
-            row = cursor.fetchone()
-            if(row!=None):
-                if( (row[0]+numPage)<100):
-                    cursor.execute("UPDATE Manuscript SET `Status`='scheduled',idIssue=%s,BeginningPageNum=%s WHERE ManuscriptNum=%s",(issueID,row[0],manNum,))
-                    cursor.execute("UPDATE Issue SET NumPages = %s WHERE idIssue=%s",(row[0]+numPage,issueID,))
-                    con.commit()
+        print("finding one")
+        result = db.manuscript.find_one({"_id":ObjectId(manNum)})
+        print("found one")
+        if(result["_id"]):
+            print("checking status")
+            if(result["status"]=="accepted"):
+                print("before")
+                pipeline = [
+                    {"$match":{"idissue":ObjectId(issueID)}
+
+                    },
+                    { "$group":
+                        {
+                            "_id": "$idissue",
+                            "numpages": {"$sum": "$numpages"}
+                        }
+                    }
+                ]
+                issue = list(db.manuscript.aggregate(pipeline))
+                issue = issue[0]
+                print("after")
+                print(issue)
+                if(result["numpages"]+issue["numpages"]>100):
+                    print("too many pages to schedule\n")
+                    statusCommand(edid,db)
                 else:
-                    print('Manuscript has too many pages')
+                    result=db.manuscript.find_one_and_update({"_id":ObjectId(manNum)}, {"$set":{"status":"scheduled","dateupdated":time.strftime("%x"),"idissue":issueID}})
+                    print('Scheduled ManuscriptNum ' + manNum)
+                    statusCommand(edid,db)
+
             else:
-                print('could not find issue in system')
-            cursor.close()
+                print("Manuscript was not previously accepted")
+                statusCommand(edid,db)
+
         else:
-            print('status of manuscript is not accepted, cannot schedule at this time')
-        statusCommand(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+            print("Manuscript not found")
+
+    except pymongo.errors.ServerSelectionTimeoutError as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def publish(issueID,edid,con):
+
+def publish(issueID,edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("SELECT * FROM Manuscript WHERE idIssue=%s AND `Status`='scheduled' LIMIT 1",(issueID,))
-        row = cursor.fetchone()
-        print('here')
-        if(row!=None):
-            cursor.execute("UPDATE Manuscript SET `Status`='published' WHERE idIssue=%s",(issueID,))
-            print('here')
-            cursor.execute("UPDATE Issue SET PrintDate=STR_TO_DATE(%s,'%m/%d/%Y') WHERE idIssue=%s",(time.strftime("%x"),issueID,))
-            con.commit()
-        else:
+        result = list(db.manuscript.find({"idissue":issueID,"status":"scheduled"}))
+        if(len(result)==0):
             print('No Manuscripts for this issue that are scheduled to be published!')
-        statusCommand(edid,con)
+            statusCommand(edid,db)
+        else:
+            for item in result:
+                db.manuscript.find_one_and_update({"idissue":issueID},{"$set":{"status":"published","dateupdated":time.strftime("%x")}})
+        db.issues.find_one_and_update({"_id":issueID},{"$set":{"printDate":time.strftime("%x")}})
+        statusCommand(edid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def optionsEditor(edid,con):
+def optionsEditor(edid,db):
     print("Enter 'STATUS' to view all manuscripts in the system")
     print("Enter 'ASSIGN <manu#> <reviewer id>' to assign a manuscript to be reviewed by a reviewer with timestamp")
     print("Enter 'REJECT <manu#>' to set the manuscript to rejected with timestamp")
@@ -195,39 +153,36 @@ def optionsEditor(edid,con):
     user_input = raw_input("\nEnter: ")
     user_input_words = user_input.split(' ')
     if(user_input == 'STATUS'):
-        statusCommand(edid,con)
+        statusCommand(edid,db)
     elif(user_input_words[0] == 'ASSIGN'):
-        assign(user_input_words[1],user_input_words[2],edid,con)
+        assign(user_input_words[1],user_input_words[2],edid,db)
     elif(user_input_words[0] == 'REJECT'):
-        reject(user_input_words[1],edid,con)
+        reject(user_input_words[1],edid,db)
     elif(user_input_words[0] == 'ACCEPT'):
-        accept(user_input_words[1],edid,con)
+        accept(user_input_words[1],edid,db)
     elif(user_input_words[0] == 'TYPESET'):
-        typeset(user_input_words[1],user_input_words[2],edid,con)
+        typeset(user_input_words[1],user_input_words[2],edid,db)
     elif(user_input_words[0] == 'SCHEDULE'):
-        schedule(user_input_words[1],user_input_words[2],edid,con)
+        schedule(user_input_words[1],user_input_words[2],edid,db)
     elif(user_input_words[0] == 'PUBLISH'):
-        publish(user_input_words[1],edid,con)
+        publish(user_input_words[1],edid,db)
     else:
         print('EXITING PROGRAM')
 
 
-def statusCommand(edid,con):
+def statusCommand(edid,db):
     try:
-        cursor = con.cursor()
-        cursor.execute("SELECT ManuscriptNum,Title,status,DateReceived FROM Manuscript WHERE EditorID=%s ORDER BY status, DateReceived",(edid,))
-        row = cursor.fetchone()
-        numManuscripts = 0
-        while row is not None:
-            print("""\nManuscript Number: %s\nManuscript Title: %s\nStatus: %s\nDate Received: %s\n""" %
-            (str(row[0]),str(row[1]),str(row[2]),str(row[3])))
-            numManuscripts+=1
-            row = cursor.fetchone()
-        if (numManuscripts == 0):
+        result = db.manuscript.find({"editorid":ObjectId(edid)}).sort([("status",1), ("_id",1)])
+        # cursor.execute("SELECT ManuscriptNum,Title,status,DateReceived FROM Manuscript WHERE EditorID=%s ORDER BY status, DateReceived",(edid,))
+        print("\n")
+        print('| %30s |||| %30s |||| %30s |' % ("Manuscript Title","Status","Manuscript Number"))
+        for post in result:
+            print('| %30s |||| %30s |||| %30s |' % (post["title"],post["status"],post["_id"]))
+        print("\n")
+        if(result == None):
             print("You currently have no manuscripts for which you are the editor.")
-        cursor.close()
-        optionsEditor(edid,con)
-    except mysql.connector.Error as e:        # catch SQL errors
+        optionsEditor(edid,db)
+    except pymongo.errors.ServerSelectionTimeoutError as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
