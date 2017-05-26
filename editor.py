@@ -41,14 +41,10 @@ def loginEditor(edid,db):
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def assign(manNum,revId,db):
+def assign(manNum,revId,edid,db):
     try:
-        db.manuscript.find_one_and_update()
-        cursor.execute("INSERT INTO `Review` (`ManuscriptNum`,`ReviewerNum`,`DateReceived`) VALUES(%s,%s,STR_TO_DATE(%s,'%m/%d/%Y'))",(manNum,revId,time.strftime("%x")))
-        con.commit()
-        print('%s',time.strftime("%x"))
-        print('INSERT COMPLETE')
-        statusCommand(edid,con)
+        db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviews":{"reviewerid":ObjectId(revId) }}})
+        statusCommand(edid,db)
     except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
@@ -135,10 +131,11 @@ def publish(issueID,edid,db):
         result = list(db.manuscript.find({"idissue":issueID,"status":"scheduled"}))
         if(len(result)==0):
             print('No Manuscripts for this issue that are scheduled to be published!')
+            statusCommand(edid,db)
         else:
             for item in result:
                 db.manuscript.find_one_and_update({"idissue":issueID},{"$set":{"status":"published","dateupdated":time.strftime("%x")}})
-            db.issues.find_one_and_update({"_id":issueID},{"$set":{"printDate":time.strftime("%x")}})
+        db.issues.find_one_and_update({"_id":issueID},{"$set":{"printDate":time.strftime("%x")}})
         statusCommand(edid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
