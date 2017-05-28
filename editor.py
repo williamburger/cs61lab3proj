@@ -43,7 +43,7 @@ def loginEditor(edid,db):
 
 def assign(manNum,revId,edid,db):
     try:
-        db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviews":{"reviewerid":ObjectId(revId) }}})
+        db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviewers":ObjectId(revId) }})
         statusCommand(edid,db)
     except pymongo.errors.ServerSelectionTimeoutError as e:
         print("SQL Error: {0}".format(e.msg))

@@ -4,13 +4,11 @@ import sys                                   # for misc errors
 import time
 import utils
 import getpass
+from bson.objectid import ObjectId
 
-def resign(revid,con):
+def resign(revid,db):
     try:
-        cursor=con.cursor()
-        cursor.execute("UPDATE Reviewer SET `Status`='inactive' WHERE ReviewerNum=%s",(revid,))
-        con.commit()
-        cursor.close()
+        db.reviewers.find_one_and_update({"_id":ObjectId(revid)},{"$set":{"status":"inactive"}})
         print('Thank you for your Service')
         print('EXITING PROGRAM')
     except mysql.connector.Error as e:        # catch SQL errors
@@ -18,7 +16,7 @@ def resign(revid,con):
     except:                                   # anything else
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
-def optionsReviewer(revid,con):
+def optionsReviewer(revid,db):
     manNum = raw_input('PLEASE ENTER A MANUSCRIPT NUMBER YOU WANT TO REVIEW <ManNum> or EXIT to exit:')
     if(manNum == 'EXIT'):
         return
@@ -29,27 +27,42 @@ def optionsReviewer(revid,con):
     Recommendation = raw_input('Type ACCEPT to recommend accepting the manuscript, or REJECT if not:')
     Recommendation = Recommendation.lower()
     try:
-        cursor=con.cursor()
-        cursor.execute("SELECT * FROM Review WHERE ManuscriptNum=%s AND ReviewerNum=%s",(manNum,revid,))
-        row = cursor.fetchone()
+        print('here1')
+        pipeline = [
+            {"$match":{"_id":ObjectId(manNum)}},
+            {"$unwind": "$reviewers"},
+            {"$match": {"reviewers":revid}}
+        ]
+        print('here2')
+        reviews = list(db.manuscript.aggregate(pipeline))
+        print('here3')
+        numReviews = len(reviews)
+        print(reviews)
+        if(numReviews==0):
+            print("Manuscript not found or does not belong to this Reviewer")
+            statusCommand(revid,db)
+        for item in reviews:
+            if(item["status"]!="under review"):
+                print('manuscript is not under review')
+                statusCommand(revid,db)
+            print('here4')
+            if(numReviews != 0):
+                for review in item["reviews"]:
+                    if(review["reviewerid"]==revid):
+                        print('reviewer has already reviewed this manuscript')
+                        statusCommand(revid,db)
+                db.manuscript.find_one_and_update({"_id":manNum},{"$push":{"reviews":{
+                    "reviewerid":revid,
+                    "appropriateness":Appropriateness,
+                    "clarity":Clarity,
+                    "methodology":Methodology,
+                    "contribution":contribution,
+                    "recommendation":recommendation
+                    }}})
 
-        if(row!=None):
-            cursor.close()
-            cursor = con.cursor()
-            cursor.execute("SELECT * FROM Manuscript WHERE ManuscriptNum=%s AND `Status`='under review'",(manNum,))
-            row = cursor.fetchone()
-            if(row!=None):
-                cursor.close()
-                cursor = con.cursor()
-                cursor.execute("UPDATE Review SET `Clarity`=%s,Appropriateness=%s,Contribution=%s,Methodology=%s,Recommendation=%s WHERE ManuscriptNum=%s AND ReviewerNum=%s",(Clarity,Appropriateness,Contribution,Methodology,Recommendation,manNum,revid))
-                con.commit()
-                print("Manuscript "+manNum+" updated")
-            else:
-                print("Manuscript not under review")
         else:
-            print('Manuscript did not belong to this reviewer\n')
-        cursor.close()
-        statusCommand(revid,con)
+            print('Manuscript not assigned to this reviewer')
+        statusCommand(revid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
     except:                                   # anything else
@@ -58,34 +71,28 @@ def optionsReviewer(revid,con):
 def statusCommand(revid,db):
     try:
         pipeline = [
-            {"$unwind": "$reviews"},
-            { "$match": {"reviewerid":revid}}
+            {"$unwind": "$reviewers"},
+            {"$match": {"reviewers":revid}}
         ]
-        reviews = db.manuscript.aggregate(pipeline)
-        print(reviews)
-        print(list(reviews))
-        # reviews = db.manuscript.find({ "reviews": { "$elemMatch": { "reviewerid": ObjectId(revid) }}})
-        # print('sup')
-        # print(list(reviews))
-        numReviews = len(list(reviews))
-        print('herio')
-        i = 0
-        while i < numReviews:
-            print('hi')
-            # print("""\nReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
-            # (reviews[i]["reviewerid"],reviews[i]["datereceived"],reviews[i]["_id"],reviews[i]["title"],reviews[i]["reviews"],))
-            # i+=1
+        reviews = list(db.manuscript.aggregate(pipeline))
+        numReviews = len(reviews)
+
+
+        for item in (list(reviews)):
+
+            for review in item["reviews"]:
+
+                if(review["reviewerid"] == revid):
+                    print(item["title"])
+                    print("     appropriateness: %s" % (review["appropriateness"] ))
+                    print("     clarity: %s" % (review["clarity"]) )
+                    print("     methodology: %s" % (review["methodology"]) )
+                    print("     contribution: %s" % (review["contribution"]) )
+                    print("     recommendation: %s" % (review["recommendation"]) )
+
         if (numReviews == 0):
             print("You currently have no manuscripts for which you are the reviewer.")
-        # while row is not None:
-        #     print("""ReviewerNum: %s\nDateSent: %s\nManuscript Number: %s\nManuscript Title: %s\nAppropriateness: %s\nClarity: %s\nMethodology: %s\nContribution: %s\nRecommendation: %s\n""" %
-        #     (str(row[0]),str(row[1]),str(row[2]),str(row[3]),str(row[4]),str(row[5]),str(row[6]),str(row[7]),str(row[8])))
-        #     numManuscripts+=1
-        #     row = cursor.fetchone()
-        # if (numManuscripts == 0):
-        #     print("You currently have no manuscripts for which you are the reviewer.")
-        # cursor.close()
-        # optionsReviewer(revid,con)
+        optionsReviewer(revid,db)
     except pymongo.errors.ServerSelectionTimeoutError as err:
         print("Connection Failure")
         print(err)
