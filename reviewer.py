@@ -27,17 +27,17 @@ def optionsReviewer(revid,db):
     Recommendation = raw_input('Type ACCEPT to recommend accepting the manuscript, or REJECT if not:')
     Recommendation = Recommendation.lower()
     try:
-        print('here1')
+
         pipeline = [
             {"$match":{"_id":ObjectId(manNum)}},
             {"$unwind": "$reviewers"},
             {"$match": {"reviewers":revid}}
         ]
-        print('here2')
+
         reviews = list(db.manuscript.aggregate(pipeline))
-        print('here3')
+
         numReviews = len(reviews)
-        print(reviews)
+
         if(numReviews==0):
             print("Manuscript not found or does not belong to this Reviewer")
             statusCommand(revid,db)
@@ -45,23 +45,24 @@ def optionsReviewer(revid,db):
             if(item["status"]!="under review"):
                 print('manuscript is not under review')
                 statusCommand(revid,db)
-            print('here4')
+
             if(numReviews != 0):
                 for review in item["reviews"]:
                     if(review["reviewerid"]==revid):
                         print('reviewer has already reviewed this manuscript')
                         statusCommand(revid,db)
-                db.manuscript.find_one_and_update({"_id":manNum},{"$push":{"reviews":{
+
+                insert = {
                     "reviewerid":revid,
                     "appropriateness":Appropriateness,
                     "clarity":Clarity,
                     "methodology":Methodology,
-                    "contribution":contribution,
-                    "recommendation":recommendation
-                    }}})
+                    "contribution":Contribution,
+                    "recommendation":Recommendation
+                    }
 
-        else:
-            print('Manuscript not assigned to this reviewer')
+                db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviews":insert}})
+        
         statusCommand(revid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
@@ -76,7 +77,7 @@ def statusCommand(revid,db):
         ]
         reviews = list(db.manuscript.aggregate(pipeline))
         numReviews = len(reviews)
-
+        print('what')
 
         for item in (list(reviews)):
 
