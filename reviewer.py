@@ -62,7 +62,7 @@ def optionsReviewer(revid,db):
                     }
 
                 db.manuscript.find_one_and_update({"_id":ObjectId(manNum)},{"$push":{"reviews":insert}})
-        
+
         statusCommand(revid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
@@ -77,19 +77,22 @@ def statusCommand(revid,db):
         ]
         reviews = list(db.manuscript.aggregate(pipeline))
         numReviews = len(reviews)
-        print('what')
 
         for item in (list(reviews)):
-
+            if(item["reviewers"] == revid):
+                found = 1
+                print(item["title"])
             for review in item["reviews"]:
-
                 if(review["reviewerid"] == revid):
-                    print(item["title"])
                     print("     appropriateness: %s" % (review["appropriateness"] ))
                     print("     clarity: %s" % (review["clarity"]) )
                     print("     methodology: %s" % (review["methodology"]) )
                     print("     contribution: %s" % (review["contribution"]) )
                     print("     recommendation: %s" % (review["recommendation"]) )
+                    found = 2
+            if(found==1):
+                print("No reviews for this title yet \n")
+            found = 0
 
         if (numReviews == 0):
             print("You currently have no manuscripts for which you are the reviewer.")

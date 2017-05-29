@@ -128,14 +128,14 @@ def schedule(manNum,issueID,edid,db):
 
 def publish(issueID,edid,db):
     try:
-        result = list(db.manuscript.find({"idissue":issueID,"status":"scheduled"}))
+        result = list(db.manuscript.find({"idissue":ObjectId(issueID),"status":"scheduled"}))
         if(len(result)==0):
             print('No Manuscripts for this issue that are scheduled to be published!')
             statusCommand(edid,db)
         else:
             for item in result:
-                db.manuscript.find_one_and_update({"idissue":issueID},{"$set":{"status":"published","dateupdated":time.strftime("%x")}})
-        db.issues.find_one_and_update({"_id":issueID},{"$set":{"printDate":time.strftime("%x")}})
+                db.manuscript.update({"idissue":ObjectId(issueID),"status":"scheduled"},{"$set":{"status":"published","dateupdated":time.strftime("%x")}})
+        db.issues.find_one_and_update({"_id":ObjectId(issueID)},{"$set":{"printDate":time.strftime("%x")}})
         statusCommand(edid,db)
     except mysql.connector.Error as e:        # catch SQL errors
         print("SQL Error: {0}".format(e.msg))
