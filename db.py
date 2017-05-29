@@ -47,20 +47,28 @@ def AuthorSubmit(authorId,db):
         if (Affiliation < 1 or Affiliation > 123):
             print("RICode must be between 1 and 123")
             AuthorSubmit(authorId,db)
+            return
     except:
         print('Affiliation must be an integer between 1 and 123')
         AuthorSubmit(authorId,db)
+        return
     user_input = raw_input("Enter Number of Contributing Authors: ")
     try:
         numAuthors = int(user_input)
     except:
         print('Number of Contributing Authors must be an integer.')
         AuthorSubmit(authorId,db)
+        return
     i = 0
     extraAuthors = []
     while (i<numAuthors):
         user_input = raw_input("Enter Author %d's id: " % (i+1))
-        extraAuthors.append(ObjectId(user_input))
+        try:
+            extraAuthors.append(ObjectId(user_input))
+        except:
+            print("That's not a valid id.")
+            AuthorSubmit(authorId,db)
+            return
         i=i+1
 
     user_input = raw_input("Enter fileName: ")
@@ -95,6 +103,11 @@ def AuthorSubmit(authorId,db):
         print("Unexpected error: {0}".format(sys.exc_info()[0]))
 
 def ManuscriptRetract(authorId,manuscriptNum,db):
+    try:
+        ObjectId(manuscriptNum)
+    except:
+        print("Not a valid manuscript id.")
+        return
     print("Are you sure you want to delete manuscript %s?" % manuscriptNum)
     user_input = raw_input("y/n: " )
     if (user_input == "y"):
@@ -139,6 +152,11 @@ def GiveAuthorOptions(authorId,db):
 
 def loginAuthor(authorId,db):
     try:
+        try:
+            ObjectId(authorId)
+        except:
+            print("Not a valid author id.")
+            return
         author = db.authors.find_one({"_id": ObjectId(authorId)})
         print('Welcome Back!\n')
         print ("Name: %s" % (author["name"]))
