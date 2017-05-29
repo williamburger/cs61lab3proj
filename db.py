@@ -225,10 +225,9 @@ if __name__ == "__main__":
           user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
                  "Otherwise, type 'Register'\n")
           if (user_input == 'Register'):
-                editor.registerEditor(None,None,None,MASTER_KEY,con)
+                editor.registerEditor(None,db)
           else:
-                password = getpass.getpass("Please enter your password: ")
-                editor.loginEditor(user_input,password,MASTER_KEY,con)
+                editor.loginEditor(user_input,db)
       elif (user_input == 'Reviewer'):
           user_input = raw_input("If you have previously signed up, login by typing in your unique id.\n"
                  "If You wish to resign, type 'RESIGN <id>'\n"
@@ -237,7 +236,7 @@ if __name__ == "__main__":
           if (user_input == 'Register'):
                 reviewer.registerReviewer(None,None,None,None,db)
           elif(inputArr[0] =='RESIGN'):
-                reviewer.resign(inputArr[1],con)
+                reviewer.resign(inputArr[1],db)
           else:
                 reviewer.loginReviewer(ObjectId(user_input),db)
       elif (user_input == "Logout"):
